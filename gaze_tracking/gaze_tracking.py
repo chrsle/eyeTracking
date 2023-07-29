@@ -4,6 +4,13 @@ import cv2
 import dlib
 from .eye import Eye
 from .calibration import Calibration
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from keras_vggface.vggface import VGGFace
+from keras.layers import Flatten, Dense
+from keras.models import Model
+from keras.models import Sequential
+from keras.layers import LSTM, Dense, TimeDistributed
 
 
 class GazeTracking(object):
@@ -116,6 +123,79 @@ class GazeTracking(object):
         if self.pupils_located:
             blinking_ratio = (self.eye_left.blinking + self.eye_right.blinking) / 2
             return blinking_ratio > 3.8
+        
+    def create_emotion_model():
+        """
+        This function creates a model for emotion detection
+        """
+        num_classes = 7  # Number of emotion classes, e.g. happy, sad, angry, etc.
+
+        # Create a sequential model
+        model = Sequential()
+
+        # Add convolutional and pooling layers
+        model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(48, 48, 1)))
+        model.add(MaxPooling2D((2, 2)))
+        model.add(Conv2D(64, (3, 3), activation='relu'))
+        model.add(MaxPooling2D((2, 2)))
+        model.add(Conv2D(64, (3, 3), activation='relu'))
+
+        # Flatten the tensor output from the previous layer
+        model.add(Flatten())
+
+        # Add dense and dropout layers
+        model.add(Dense(64, activation='relu'))
+        model.add(Dropout(0.5))
+        model.add(Dense(num_classes, activation='softmax'))
+
+        # Compile the model
+        model.compile(optimizer='adam',
+                    loss='categorical_crossentropy',
+                    metrics=['accuracy'])
+
+        return model
+
+    def load_emotion_model():
+        # Create the model
+        model = create_emotion_model()
+
+        # Load the weights from the trained model
+        model.load_weights('/path/to/your/model/weights.h5')
+
+        return model
+    
+
+    # Load the VGGFace model, excluding the top layers
+    base_model = VGGFace(include_top=False, input_shape=(224, 224, 3))
+
+    # Add new layers on top for emotion classification
+    x = Flatten()(base_model.output)
+    x = Dense(256, activation='relu')(x)
+    output = Dense(7, activation='softmax')(x)
+
+    # Create the new model
+    emotion_model = Model(inputs=base_model.input, outputs=output)
+
+    # Compile the model
+    emotion_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+    # Now you can train the emotion_model on your labeled emotion images
+
+
+    # Assume gaze_data is a 3D numpy array where the first dimension is the number of sequences,
+    # the second dimension is the length of each sequence, and the third dimension is the number of features per timestep
+    # Assume gaze_targets is a 3D numpy array of the same shape
+    gaze_data = ...
+    gaze_targets = ...
+
+    # Create an LSTM model
+    model = Sequential()
+    model.add(LSTM(32, return_sequences=True, input_shape=(None, 2)))
+    model.add(TimeDistributed(Dense(2)))
+
+    # Compile and train the model
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    model.fit(gaze_data, gaze_targets, epochs=10, batch_size=1, verbose=2)
 
     def annotated_frame(self):
         """Returns the main frame with pupils highlighted"""
@@ -131,3 +211,5 @@ class GazeTracking(object):
             cv2.line(frame, (x_right, y_right - 5), (x_right, y_right + 5), color)
 
         return frame
+    
+
